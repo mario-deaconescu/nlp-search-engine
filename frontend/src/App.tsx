@@ -1,8 +1,8 @@
 import {useEffect, useRef, useState} from "react";
-import {Page, pdfjs, Document} from "react-pdf";
+import {Document, Page, pdfjs} from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
-import {FaPlus, FaSearch} from "react-icons/fa";
+import {FaSearch} from "react-icons/fa";
 import {addToast, Button, Divider, Input, Spinner} from "@heroui/react";
 import {SelectDocument} from "./components/SelectDocument.tsx";
 import {PaginationButtons} from "./components/PaginationButtons.tsx";
@@ -14,7 +14,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 function App() {
-    const fileInputRef = useRef(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [pdfFile, setPdfFile] = useState<File>();
     const [dragOver, setDragOver] = useState(false);
     const [numPages, setNumPages] = useState<number>();
@@ -24,7 +24,7 @@ function App() {
     const [searchResults, setSearchResults] = useState<{page:number,score:number}>();
     const [session_id, setSessionId] = useState<string>();
 
-    const handleClick = () => fileInputRef.current.click();
+    const handleClick = () => fileInputRef.current?.click();
 
     const handleFiles = async (files: FileList | null) => {
         console.log("files", files);
@@ -34,6 +34,8 @@ function App() {
             setPdfFile(file);
             setCurrentPage(1);
             setSearchInput("");
+            setSearchResults(undefined);
+            setSessionId(undefined);
 
             const formData = new FormData();
             formData.append("file", file);
@@ -46,7 +48,10 @@ function App() {
             const { session_id } = await uploadRes.json();
             setSessionId(session_id);
         } else {
-            alert("Only PDF files are supported.");
+            addToast({
+                title: "Only PDF files are supported.",
+                severity: "danger",
+            })
         }
     };
 
@@ -73,21 +78,23 @@ function App() {
             };
 
             eventSource.onopen = () => console.log("Connected to SSE");
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error sending PDF:", error);
+            addToast({
+                title: "Error sending PDF",
+                severity: "danger",
+                description: error.message,
+            });
             throw error;
+
         }
     }
 
-    const handleDrop = async (e) => {
+    const handleDrop = async (e : any) => {
         e.preventDefault();
         setDragOver(false);
         await handleFiles(e.dataTransfer.files);
     };
-
-    useEffect(() => {
-        console.log("pdfFile", pdfFile);
-    }, [pdfFile]);
 
     useEffect(() => {
         if(!loading && searchResults){

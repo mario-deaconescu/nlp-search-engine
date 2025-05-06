@@ -2,7 +2,6 @@ import uuid
 import json
 import os
 
-
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,13 +10,13 @@ from search_engine.src.preprocessing.string_list_utils import preprocess_string_
 from search_engine.src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
 
 from backend.utils.helpers import extract_text_from_pdf, search_in_dataset, clear_cache_dir
-from backend.utils.constants import CHUNK_SIZE, BASE_CACHE_DIR, PREPROCESSING_CACHE_DIR
+from backend.utils.constants import CHUNK_SIZE, BASE_CACHE_DIR, PREPROCESSING_CACHE_DIR, FRONTEND_URL
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite default
+    allow_origins=[FRONTEND_URL], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

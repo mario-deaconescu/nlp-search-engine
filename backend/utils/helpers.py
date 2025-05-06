@@ -3,7 +3,6 @@ import shutil
 import fitz
 import json
 
-
 from search_engine.src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
 from search_engine.src.query.search_tfidf import search_tfidf
 
@@ -37,7 +36,6 @@ def search_in_dataset(dataset: TfIdfChunkedDocumentDataset, search: str):
     search_results = search_tfidf(search, dataset)
     
     for result in search_results:
-        # print(f"Found result: {result[0]['id']} with score: {result[0]['score']} document: {result[0]['document']}")
         data = {
             "page": int(result[0]["id"]),
             "score": float(result[0]["score"]),

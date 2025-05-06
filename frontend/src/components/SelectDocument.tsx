@@ -1,6 +1,11 @@
 import {FaPlus} from "react-icons/fa";
 
-export const SelectDocument = ({handleClick, handleDrop, setDragOver, dragOver}) => {
+export const SelectDocument = ({handleClick, handleDrop, setDragOver, dragOver} : {
+    handleClick: () => void,
+    handleDrop: (e: any) => void,
+    setDragOver: (dragOver: boolean) => void,
+    dragOver: boolean,
+}) => {
     return (
         <div
             onClick={handleClick}
