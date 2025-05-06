@@ -2,7 +2,7 @@ import os
 import pickle
 from typing import TypeVar, Generic, Callable, Optional
 
-from src.constants import CACHE_PATH
+from search_engine.src.constants import CACHE_PATH
 
 T = TypeVar("T")
 

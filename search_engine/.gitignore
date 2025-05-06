@@ -2,3 +2,5 @@
 .idea/
 .cadence/
 **/.cache/
+# Python cache
+__pycache__/

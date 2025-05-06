@@ -8,14 +8,15 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from torch.utils.data import DataLoader
 
-from src.datasets.tfidf_dataset import TfIdfDocumentDataset, TfIdfBatchedOutput, TfIdfChunkedDocumentDataset
-from src.datasets.utils import no_collate
-from src.preprocessing.preprocess import preprocess_document
+from search_engine.src.datasets.tfidf_dataset import TfIdfDocumentDataset, TfIdfBatchedOutput, TfIdfChunkedDocumentDataset
+from search_engine.src.datasets.utils import no_collate
+from search_engine.src.preprocessing.preprocess import preprocess_document
 
 
 class SearchResult(TypedDict):
     document: str
     score: float
+    id: int
 
 
 def search_tfidf_chunked(args: tuple[str, TfIdfChunkedDocumentDataset, int, list[SearchResult], Lock]) -> list[SearchResult]:
@@ -46,6 +47,7 @@ def search_tfidf_chunked(args: tuple[str, TfIdfChunkedDocumentDataset, int, list
     # 7. Rank sentences
     ranked_indices = np.argsort(cosine_similarities)[::-1]
     ranked_documents: list[SearchResult] = [{
+        'id': idx*chunk_size + i,
         'document': documents[i],
         'score': cosine_similarities[i]
     } for i in ranked_indices]
