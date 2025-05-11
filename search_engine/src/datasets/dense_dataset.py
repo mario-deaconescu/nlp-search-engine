@@ -4,11 +4,11 @@ from faiss import Index, IndexFlatIP,  write_index, read_index
 
 import torch.utils.data
 
-from src.datasets.utils import CachedList
-from src.preprocessing.preprocess import nlp, preprocess_document
+from search_engine.src.datasets.utils import CachedList
+from search_engine.src.preprocessing.preprocess import nlp, preprocess_document
 from sentence_transformers import SentenceTransformer
 
-from src.constants import EMBEDDINGS_DIMENSION
+from search_engine.src.constants import EMBEDDINGS_DIMENSION
 
 
 class DenseInput(TypedDict):
@@ -17,10 +17,12 @@ class DenseInput(TypedDict):
 class DenseOutput(TypedDict):
     document: str
     embedding: np.ndarray
+    model: SentenceTransformer
 
 class DenseBatchedOutput(TypedDict):
     documents: list[str]
     embeddings: np.ndarray  # shape: (batch_size, embedding_dim)
+    model: SentenceTransformer
 
 class DenseDocumentDataset(torch.utils.data.Dataset):
 
@@ -67,10 +69,11 @@ class DenseDocumentDataset(torch.utils.data.Dataset):
         return {
             "documents": documents,
             "embeddings": embeddings,
+            "model": model,
         }
 
-    def get_all(self) -> DenseBatchedOutput:
-        return self.get_chunked(range(len(self.documents)))
+    def get_all(self, model: SentenceTransformer) -> DenseBatchedOutput:
+        return self.get_chunked(range(len(self.documents)), model)
 
 class DenseChunkedDocumentDataset(torch.utils.data.Dataset):
 

@@ -8,16 +8,16 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from torch.utils.data import DataLoader
 
-from src.datasets.dense_dataset import DenseDocumentDataset, DenseBatchedOutput, DenseChunkedDocumentDataset
-from src.datasets.utils import no_collate
-from src.preprocessing.preprocess import preprocess_document
+from search_engine.src.datasets.dense_dataset import DenseDocumentDataset, DenseBatchedOutput, DenseChunkedDocumentDataset
+from search_engine.src.datasets.utils import no_collate
+from search_engine.src.preprocessing.preprocess import preprocess_document
 
 from sentence_transformers import SentenceTransformer
 
 from src.utils.l2_normalizer import l2_normalize
 
 from faiss import read_index
-from src.constants import INDEX_PATH
+from src.constants import INDEX_PATH, TOP_K
 
 
 class SearchResult(TypedDict):
@@ -40,17 +40,17 @@ def search_faiss_chunked(args: tuple[str, DenseChunkedDocumentDataset, int, list
     # print(data)
 
 
-    chunk = dataset.get_chunk(idx)
+    chunk = dataset.get_chunk(idx, model)
 
     documents = chunk['documents']
-    model = chunk['model']
+    #model = chunk['model']
     faiss_index = read_index(INDEX_PATH)
 
     chunk_size = len(documents)
     query = preprocess_document(query)
 
 
-    query_encoded = model.model.encode(
+    query_encoded = model.encode(
         [query],
         convert_to_numpy=True,
     )

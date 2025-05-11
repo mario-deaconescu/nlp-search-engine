@@ -9,11 +9,12 @@ from src.query.search_tfidf import search_tfidf
 from src.query.search_faiss import search_faiss
 
 
+from sentence_transformers import SentenceTransformer
+
 def clear_cache_dir(cache_path: str = "articles"):
     if os.path.exists(cache_path):
         shutil.rmtree(cache_path)  # Delete the directory and all contents
         os.makedirs(cache_path)
-
 
 def extract_text_from_pdf(contents: bytes) -> list[str]:
     """
@@ -37,7 +38,8 @@ def search_in_dataset(dataset: TfIdfChunkedDocumentDataset | DenseChunkedDocumen
     if isinstance(dataset, TfIdfChunkedDocumentDataset):
         generator = search_tfidf(search, dataset)
     else:
-        generator = search_faiss(search, dataset)
+        model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        generator = search_faiss(search, dataset, model)
 
     length = len(dataset)
 
