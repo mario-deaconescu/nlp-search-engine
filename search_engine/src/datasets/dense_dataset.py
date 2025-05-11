@@ -90,15 +90,15 @@ class DenseChunkedDocumentDataset(torch.utils.data.Dataset):
         else:
             self.cache = None
 
+        self.index: Optional[IndexFlatIP] = None
+
         if index_path is not None:
             try:
                 self.index : Optional[IndexFlatIP] | None = read_index(index_path)  # Try loading the existing index
             except Exception as e:
                 print(f"Could not load index from {index_path}. Error: {e}")
                 self.index = None
-        else:
-            self.index = None
-
+       
         if self.index is None:  # If no index found, create a new one
             self.index = IndexFlatIP(EMBEDDINGS_DIMENSION)
 

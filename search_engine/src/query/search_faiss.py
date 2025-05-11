@@ -44,7 +44,8 @@ def search_faiss_chunked(args: tuple[str, DenseChunkedDocumentDataset, int, list
 
     documents = chunk['documents']
     #model = chunk['model']
-    faiss_index = read_index(INDEX_PATH)
+    # faiss_index = read_index(INDEX_PATH)
+    faiss_index = dataset.index
 
     chunk_size = len(documents)
     query = preprocess_document(query)
@@ -61,8 +62,9 @@ def search_faiss_chunked(args: tuple[str, DenseChunkedDocumentDataset, int, list
     ranked_documents: list[SearchResult] = [{
         'id': idx*chunk_size + i,
         'document': documents[i],
-        'score': distances[i]
-    } for i in ranked_indices]
+        'score': distances[0][iteration]
+    } for iteration, i in enumerate(ranked_indices[0])]
+
 
     # 8. Lock
     with lock:
@@ -71,6 +73,7 @@ def search_faiss_chunked(args: tuple[str, DenseChunkedDocumentDataset, int, list
         # 8. Sort by score
         tmp = sorted(global_results, key=lambda x: x['score'], reverse=True)[:chunk_size]
         global_results[:] = tmp
+
     return tmp
 
 def search_faiss(query: str, dataset: DenseChunkedDocumentDataset, model: SentenceTransformer, top_k : int) -> Generator[list[SearchResult], None, None]:

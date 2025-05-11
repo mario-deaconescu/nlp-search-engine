@@ -11,13 +11,13 @@ from src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
 from src.datasets.dense_dataset import DenseChunkedDocumentDataset
 
 from src.utils.helpers import extract_text_from_pdf, search_in_dataset, clear_cache_dir
-from src.constants import CHUNK_SIZE, BASE_CACHE_DIR, PREPROCESSING_CACHE_DIR, FRONTEND_URL
+from src.constants import CHUNK_SIZE, BASE_CACHE_DIR, PREPROCESSING_CACHE_DIR, FRONTEND_URL, INDEX_PATH
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

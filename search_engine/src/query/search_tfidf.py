@@ -46,6 +46,7 @@ def search_tfidf_chunked(args: tuple[str, TfIdfChunkedDocumentDataset, int, list
 
     # 7. Rank sentences
     ranked_indices = np.argsort(cosine_similarities)[::-1]
+    
     ranked_documents: list[SearchResult] = [{
         'id': idx*chunk_size + i,
         'document': documents[i],
