@@ -8,9 +8,9 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from torch.utils.data import DataLoader
 
-from search_engine.src.datasets.tfidf_dataset import TfIdfDocumentDataset, TfIdfBatchedOutput, TfIdfChunkedDocumentDataset
-from search_engine.src.datasets.utils import no_collate
-from search_engine.src.preprocessing.preprocess import preprocess_document
+from src.datasets.tfidf_dataset import TfIdfDocumentDataset, TfIdfBatchedOutput, TfIdfChunkedDocumentDataset
+from src.datasets.utils import no_collate
+from src.preprocessing.preprocess import preprocess_document
 
 
 class SearchResult(TypedDict):

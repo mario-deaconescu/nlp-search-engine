@@ -6,12 +6,12 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from search_engine.src.preprocessing.string_list_utils import preprocess_string_list
-from search_engine.src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
-from search_engine.src.datasets.dense_dataset import DenseChunkedDocumentDataset
+from src.preprocessing.string_list_utils import preprocess_string_list
+from src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
+from src.datasets.dense_dataset import DenseChunkedDocumentDataset
 
-from backend.utils.helpers import extract_text_from_pdf, search_in_dataset, clear_cache_dir
-from backend.utils.constants import CHUNK_SIZE, BASE_CACHE_DIR, PREPROCESSING_CACHE_DIR, FRONTEND_URL
+from src.utils.helpers import extract_text_from_pdf, search_in_dataset, clear_cache_dir
+from src.constants import CHUNK_SIZE, BASE_CACHE_DIR, PREPROCESSING_CACHE_DIR, FRONTEND_URL
 
 app = FastAPI()
 

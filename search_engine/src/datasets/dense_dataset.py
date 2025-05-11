@@ -4,11 +4,11 @@ from faiss import Index, IndexFlatIP,  write_index, read_index
 
 import torch.utils.data
 
-from search_engine.src.datasets.utils import CachedList
-from search_engine.src.preprocessing.preprocess import nlp, preprocess_document
+from src.datasets.utils import CachedList
+from src.preprocessing.preprocess import nlp, preprocess_document
 from sentence_transformers import SentenceTransformer
 
-from constants import EMBEDDINGS_DIMENSION
+from src.constants import EMBEDDINGS_DIMENSION
 
 
 class DenseInput(TypedDict):

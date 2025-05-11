@@ -3,10 +3,10 @@ import shutil
 import fitz
 import json
 
-from search_engine.src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
-from search_engine.src.datasets.dense_dataset import DenseChunkedDocumentDataset
-from search_engine.src.query.search_tfidf import search_tfidf
-from search_engine.src.query.search_faiss import search_faiss
+from src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
+from src.datasets.dense_dataset import DenseChunkedDocumentDataset
+from src.query.search_tfidf import search_tfidf
+from src.query.search_faiss import search_faiss
 
 def clear_cache_dir(cache_path: str = "articles"):
     if os.path.exists(cache_path):

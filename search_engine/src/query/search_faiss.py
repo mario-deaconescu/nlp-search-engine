@@ -8,16 +8,16 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from torch.utils.data import DataLoader
 
-from search_engine.src.datasets.dense_dataset import DenseDocumentDataset, DenseBatchedOutput, DenseChunkedDocumentDataset
-from search_engine.src.datasets.utils import no_collate
-from search_engine.src.preprocessing.preprocess import preprocess_document
+from src.datasets.dense_dataset import DenseDocumentDataset, DenseBatchedOutput, DenseChunkedDocumentDataset
+from src.datasets.utils import no_collate
+from src.preprocessing.preprocess import preprocess_document
 
 from sentence_transformers import SentenceTransformer
 
-from utils.l2_normalizer import l2_normalize
+from src.utils.l2_normalizer import l2_normalize
 
 from faiss import read_index
-from constants import INDEX_PATH
+from src.constants import INDEX_PATH
 
 
 class SearchResult(TypedDict):

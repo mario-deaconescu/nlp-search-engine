@@ -3,11 +3,11 @@ from typing import TypedDict, Optional, Iterable
 import torch.utils.data
 from sklearn.feature_extraction.text import TfidfVectorizer, HashingVectorizer, CountVectorizer
 
-from search_engine.src.datasets.utils import CachedList
-from search_engine.src.preprocessing.preprocess import nlp, preprocess_document
+from src.datasets.utils import CachedList
+from src.preprocessing.preprocess import nlp, preprocess_document
 from scipy.sparse import csr_matrix
 
-from search_engine.src.preprocessing.vectorizer import StemmedTfidfVectorizer
+from src.preprocessing.vectorizer import StemmedTfidfVectorizer
 
 
 class TfIdfInput(TypedDict):

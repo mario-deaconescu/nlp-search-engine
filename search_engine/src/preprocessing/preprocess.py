@@ -1,7 +1,7 @@
 import re
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 
-from search_engine.src.utils.spacy_cache import load_spacy_model
+from src.utils.spacy_cache import load_spacy_model
 
 nlp = load_spacy_model("en_core_web_sm")
 
