@@ -8,7 +8,7 @@ from search_engine.src.datasets.utils import CachedList
 from search_engine.src.preprocessing.preprocess import nlp, preprocess_document
 from sentence_transformers import SentenceTransformer
 
-from constants import EMBEDDINGS_DIMENSION
+from search_engine.src.constants import EMBEDDINGS_DIMENSION
 
 
 class DenseInput(TypedDict):

@@ -14,10 +14,10 @@ from search_engine.src.preprocessing.preprocess import preprocess_document
 
 from sentence_transformers import SentenceTransformer
 
-from utils.l2_normalizer import l2_normalize
+from src.utils.l2_normalizer import l2_normalize
 
 from faiss import read_index
-from constants import INDEX_PATH
+from src.constants import INDEX_PATH
 
 
 class SearchResult(TypedDict):
