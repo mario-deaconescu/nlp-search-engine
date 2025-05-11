@@ -8,6 +8,8 @@ from search_engine.src.datasets.dense_dataset import DenseChunkedDocumentDataset
 from search_engine.src.query.search_tfidf import search_tfidf
 from search_engine.src.query.search_faiss import search_faiss
 
+from sentence_transformers import SentenceTransformer
+
 def clear_cache_dir(cache_path: str = "articles"):
     if os.path.exists(cache_path):
         shutil.rmtree(cache_path)  # Delete the directory and all contents
@@ -36,7 +38,8 @@ def search_in_dataset(dataset: TfIdfChunkedDocumentDataset | DenseChunkedDocumen
     if isinstance(dataset, TfIdfChunkedDocumentDataset):
         search_results = search_tfidf(search, dataset)
     else:
-        search_results = search_faiss(search, dataset)
+        model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        search_results = search_faiss(search, dataset, model)
 
     for result in search_results:
         data = {

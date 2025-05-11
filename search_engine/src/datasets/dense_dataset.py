@@ -17,10 +17,12 @@ class DenseInput(TypedDict):
 class DenseOutput(TypedDict):
     document: str
     embedding: np.ndarray
+    model: SentenceTransformer
 
 class DenseBatchedOutput(TypedDict):
     documents: list[str]
     embeddings: np.ndarray  # shape: (batch_size, embedding_dim)
+    model: SentenceTransformer
 
 class DenseDocumentDataset(torch.utils.data.Dataset):
 
@@ -67,10 +69,11 @@ class DenseDocumentDataset(torch.utils.data.Dataset):
         return {
             "documents": documents,
             "embeddings": embeddings,
+            "model": model,
         }
 
-    def get_all(self) -> DenseBatchedOutput:
-        return self.get_chunked(range(len(self.documents)))
+    def get_all(self, model: SentenceTransformer) -> DenseBatchedOutput:
+        return self.get_chunked(range(len(self.documents)), model)
 
 class DenseChunkedDocumentDataset(torch.utils.data.Dataset):
 
