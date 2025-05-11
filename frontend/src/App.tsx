@@ -1,9 +1,9 @@
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import {Document, Page, pdfjs} from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
 import {FaSearch} from "react-icons/fa";
-import {addToast, Button, Divider, Input, Spinner} from "@heroui/react";
+import {addToast, Button, Divider, Input, Listbox, ListboxItem, Progress, Spinner} from "@heroui/react";
 import {SelectDocument} from "./components/SelectDocument.tsx";
 import {PaginationButtons} from "./components/PaginationButtons.tsx";
 
@@ -13,6 +13,15 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     import.meta.url,
 ).toString();
 
+type SearchResults = {
+    current: number,
+    total: number,
+    results: {
+        page: number,
+        score: number,
+    }[]
+}
+
 function App() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [pdfFile, setPdfFile] = useState<File>();
@@ -21,8 +30,29 @@ function App() {
     const [currentPage, setCurrentPage] = useState(1);
     const [searchInput, setSearchInput] = useState("");
     const [loading, setLoading] = useState(false);
-    const [searchResults, setSearchResults] = useState<{page:number,score:number}>();
+    const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
     const [session_id, setSessionId] = useState<string>();
+    const [numResults, setNumResults] = useState(5);
+
+    const progess = useMemo(() => {
+        if (!loading) return null;
+        if (!searchResults) return 0;
+        return (searchResults.current + 1) / searchResults.total * 100;
+    }, [loading, searchResults]);
+
+    const filteredSearchResults = useMemo(() => {
+        if (!searchResults) return null;
+        return searchResults.results
+            .slice(0, numResults)
+            .filter((result) => {
+                return result.score > 0;
+            }).map((result, index) => ({
+                page: result.page,
+                score: result.score,
+                first: index === 0,
+            }));
+
+    }, [searchResults, numResults]);
 
     const handleClick = () => fileInputRef.current?.click();
 
@@ -34,7 +64,7 @@ function App() {
             setPdfFile(file);
             setCurrentPage(1);
             setSearchInput("");
-            setSearchResults(undefined);
+            setSearchResults(null);
             setSessionId(undefined);
 
             const formData = new FormData();
@@ -45,7 +75,7 @@ function App() {
                 body: formData,
             });
 
-            const { session_id } = await uploadRes.json();
+            const {session_id} = await uploadRes.json();
             setSessionId(session_id);
         } else {
             addToast({
@@ -58,9 +88,9 @@ function App() {
     const handleSearch = async () => {
 
         const trimmedSearch = searchInput.trim();
-        if (!pdfFile || !trimmedSearch ) return;
+        if (!pdfFile || !trimmedSearch) return;
         setLoading(true);
-        setSearchResults(undefined);
+        setSearchResults(null);
 
         try {
             const eventSource = new EventSource(`http://localhost:8000/search-stream?session_id=${session_id}&search=${trimmedSearch}`);
@@ -90,15 +120,15 @@ function App() {
         }
     }
 
-    const handleDrop = async (e : any) => {
+    const handleDrop = async (e: any) => {
         e.preventDefault();
         setDragOver(false);
         await handleFiles(e.dataTransfer.files);
     };
 
     useEffect(() => {
-        if(!loading && searchResults){
-            setCurrentPage(searchResults.page + 1)
+        if (!loading && searchResults) {
+            setCurrentPage(searchResults.results[0].page + 1)
         }
     }, [loading, searchResults]);
 
@@ -122,7 +152,7 @@ function App() {
             />
 
             {pdfFile && (
-                <div className={"flex flex-row gap-4 h-min w-full justify-center"}>
+                <div className={"flex flex-row gap-4 h-min w-full justify-center overflow-y-scroll"}>
                     <div
                         className="w-[70%] max-w-3xl h-fit max-h-full bg-white p-4 rounded shadow-lg flex flex-col items-center">
                         <Document
@@ -148,27 +178,47 @@ function App() {
                         <div className={"flex flex-col w-full gap-2"}>
                             <p>Search in document</p>
                             <div className={"flex flex-row gap-4 w-full"}>
-                            <Input
-                                startContent={<FaSearch/>}
-                                placeholder="Search"
-                                color={"primary"}
-                                type="search"
-                                value={searchInput}
-                                onChange={(e) => setSearchInput(e.target.value)}
-                                className="w-full"
-                            />
+                                <Input
+                                    startContent={<FaSearch/>}
+                                    placeholder="Search"
+                                    color={"primary"}
+                                    type="search"
+                                    value={searchInput}
+                                    onChange={(e) => setSearchInput(e.target.value)}
+                                    className="w-full"
+                                />
                                 <Button
                                     onPress={handleSearch}
                                     variant={"bordered"}
-                                color={"primary"}>Search</Button>
+                                    color={"primary"}>Search</Button>
                             </div>
+                            {progess !== null &&
+                                <Progress aria-label="Loading..." className="max-w-md" value={progess}/>}
                         </div>
                         <div className={"flex flex-col w-full gap-6 self-center"}>
                             {loading && <Spinner/>}
-                            {searchResults && <div className={loading ? "text-gray-500" : ""}>
-                                <p>Your answer is on page: {searchResults.page + 1}</p>
-                                <p>Score: {searchResults.score}</p>
-                            </div>}
+                            {filteredSearchResults &&
+                                <div>
+                                    <p className={'text-xl'}>
+                                        Top Results:
+                                    </p>
+                                    <Listbox aria-label="Search Results" items={filteredSearchResults}
+                                             onAction={(key) => setCurrentPage((typeof key === "string" ? parseInt(key) : key) + 1)}>
+                                        {(item) => (
+                                            <ListboxItem
+                                                key={item.page}
+                                                // className={item.key === "delete" ? "text-danger" : ""}
+                                                color={item.first ? "primary" : "default"}
+                                            >
+                                                <div>
+                                                    <p>Page {item.page}</p>
+                                                    <p className={'text-xs'}>Score: {item.score}</p>
+                                                </div>
+                                            </ListboxItem>
+                                        )}
+                                    </Listbox>
+                                </div>
+                            }
                         </div>
                         <div className={"flex flex-row gap-4"}>
                             <Button
@@ -189,7 +239,8 @@ function App() {
             )}
 
         </div>
-    );
+    )
+        ;
 }
 
 export default App;
