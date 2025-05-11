@@ -44,7 +44,7 @@ def search_in_dataset(dataset: TfIdfChunkedDocumentDataset | DenseChunkedDocumen
     for page, results in enumerate(generator):
         data = {
             "results": [{
-                "page": int(result["id"]),
+                "page": int(result["id"]) + 1,
                 "score": float(result["score"])
             } for result in results],
             "current": page,

@@ -45,7 +45,7 @@ async def upload(file: UploadFile = File(...)):
 
     return {"session_id": session_id}
 
-@app.get("/search-stream")
+@app.get("/search-tf-idf")
 async def search(session_id: str, search: str):
     """
     Search for a string in a PDF file.
@@ -69,15 +69,40 @@ async def search(session_id: str, search: str):
 
     dataset = TfIdfChunkedDocumentDataset(preprocessed_text, chunk_size=CHUNK_SIZE, cache_path='articles')
 
-    dense_dataset = DenseChunkedDocumentDataset(preprocessed_text, chunk_size=CHUNK_SIZE, cache_path='dense_articles')
+    # dense_dataset = DenseChunkedDocumentDataset(preprocessed_text, chunk_size=CHUNK_SIZE, cache_path='dense_articles')
 
     tfidf_results = search_in_dataset(dataset, search)
-    dense_results = search_in_dataset(dense_dataset, search)
+    # dense_results = search_in_dataset(dense_dataset, search)
 
     # Modify this
     return StreamingResponse(tfidf_results, media_type="text/event-stream")
 
 
+@app.get("/search-faiss")
+async def search_faiss(session_id: str, search: str):
+    """
+    Search for a string in a PDF file using FAISS.
+    :param session_id: The session ID for the uploaded PDF.
+    :param search: The string to search for.
+    :return: A JSON response with the search results.
+    """
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Session ID is required.")
+
+    print(f"Received FAISS search request for session {session_id} with search string: {search}")
+
+    session_path = os.path.join(PREPROCESSING_CACHE_DIR, f"{session_id}.json")
+    if not os.path.exists(session_path):
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    # Load preprocessed_text
+    with open(session_path, "r", encoding="utf-8") as f:
+        preprocessed_text = json.load(f)
+    dataset = DenseChunkedDocumentDataset(preprocessed_text, chunk_size=CHUNK_SIZE, cache_path='dense_articles')
+    dense_results = search_in_dataset(dataset, search)
+    # Modify this
+    return StreamingResponse(dense_results, media_type="text/event-stream")
 
 
 

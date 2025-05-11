@@ -3,7 +3,18 @@ import {Document, Page, pdfjs} from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
 import {FaSearch} from "react-icons/fa";
-import {addToast, Button, Divider, Input, Listbox, ListboxItem, Progress, Spinner} from "@heroui/react";
+import {
+    addToast,
+    Button,
+    Divider,
+    Input,
+    Listbox,
+    ListboxItem,
+    Progress,
+    Select,
+    SelectItem,
+    Spinner
+} from "@heroui/react";
 import {SelectDocument} from "./components/SelectDocument.tsx";
 import {PaginationButtons} from "./components/PaginationButtons.tsx";
 
@@ -29,12 +40,13 @@ function App() {
     const [numPages, setNumPages] = useState<number>();
     const [currentPage, setCurrentPage] = useState(1);
     const [searchInput, setSearchInput] = useState("");
+    const [searchTypes, setSearchTypes] = useState<Set<"TF-IDF"| "FAISS">>(new Set(["TF-IDF"]));
     const [loading, setLoading] = useState(false);
     const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
     const [session_id, setSessionId] = useState<string>();
     const [numResults, setNumResults] = useState(5);
 
-    const progess = useMemo(() => {
+    const progress = useMemo(() => {
         if (!loading) return null;
         if (!searchResults) return 0;
         return (searchResults.current + 1) / searchResults.total * 100;
@@ -93,7 +105,11 @@ function App() {
         setSearchResults(null);
 
         try {
-            const eventSource = new EventSource(`http://localhost:8000/search-stream?session_id=${session_id}&search=${trimmedSearch}`);
+            let eventSource;
+            if(searchTypes.has("TF-IDF"))
+                eventSource = new EventSource(`http://localhost:8000/search-tf-idf?session_id=${session_id}&search=${trimmedSearch}`);
+            else
+                eventSource = new EventSource(`http://localhost:8000/search-faiss?session_id=${session_id}&search=${trimmedSearch}`);
 
             eventSource.onmessage = (event) => {
                 const data = JSON.parse(event.data);
@@ -128,7 +144,7 @@ function App() {
 
     useEffect(() => {
         if (!loading && searchResults) {
-            setCurrentPage(searchResults.results[0].page + 1)
+            setCurrentPage(searchResults.results[0].page)
         }
     }, [loading, searchResults]);
 
@@ -176,6 +192,19 @@ function App() {
                     <div
                         className={"p-4 flex flex-col items-start gap-4 justify-between h-full "}>
                         <div className={"flex flex-col w-full gap-2"}>
+                            <p>Search type</p>
+                            <Select
+                                selectedKeys={searchTypes}
+                                // defaultSelectedKeys={new Set(["TF-IDF"])}
+                                onSelectionChange={(e) => setSearchTypes(e)}
+                                aria-label="Search Type"
+                                labelPlacement={"outside"}
+                                color={"primary"}
+                            >
+                                <SelectItem key={"TF-IDF"}>TF-IDF</SelectItem>
+                                <SelectItem key={"FAISS"}>FAISS</SelectItem>
+
+                            </Select>
                             <p>Search in document</p>
                             <div className={"flex flex-row gap-4 w-full"}>
                                 <Input
@@ -192,8 +221,8 @@ function App() {
                                     variant={"bordered"}
                                     color={"primary"}>Search</Button>
                             </div>
-                            {progess !== null &&
-                                <Progress aria-label="Loading..." className="max-w-md" value={progess}/>}
+                            {progress !== null &&
+                                <Progress aria-label="Loading..." className="max-w-md" value={progress}/>}
                         </div>
                         <div className={"flex flex-col w-full gap-6 self-center"}>
                             {loading && <Spinner/>}
@@ -203,7 +232,7 @@ function App() {
                                         Top Results:
                                     </p>
                                     <Listbox aria-label="Search Results" items={filteredSearchResults}
-                                             onAction={(key) => setCurrentPage((typeof key === "string" ? parseInt(key) : key) + 1)}>
+                                             onAction={(key) => setCurrentPage((typeof key === "string" ? parseInt(key) : key))}>
                                         {(item) => (
                                             <ListboxItem
                                                 key={item.page}
