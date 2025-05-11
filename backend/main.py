@@ -75,7 +75,7 @@ async def search(session_id: str, search: str):
     dense_results = search_in_dataset(dense_dataset, search)
 
     # Modify this
-    return StreamingResponse(tfidf_results, media_type="text/event-stream")
+    return StreamingResponse(dense_dataset, media_type="text/event-stream")
 
 
 
