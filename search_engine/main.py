@@ -69,13 +69,10 @@ async def search(session_id: str, search: str):
 
     dataset = TfIdfChunkedDocumentDataset(preprocessed_text, chunk_size=CHUNK_SIZE, cache_path='articles')
 
-    # dense_dataset = DenseChunkedDocumentDataset(preprocessed_text, chunk_size=CHUNK_SIZE, cache_path='dense_articles')
-
     tfidf_results = search_in_dataset(dataset, search)
-    # dense_results = search_in_dataset(dense_dataset, search)
 
     # Modify this
-    return StreamingResponse(dense_dataset, media_type="text/event-stream")
+    return StreamingResponse(tfidf_results, media_type="text/event-stream")
 
 
 @app.get("/search-faiss")

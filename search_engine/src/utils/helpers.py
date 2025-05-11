@@ -8,6 +8,8 @@ from src.datasets.dense_dataset import DenseChunkedDocumentDataset
 from src.query.search_tfidf import search_tfidf
 from src.query.search_faiss import search_faiss
 
+from src.constants import INDEX_PATH, TOP_K
+
 
 from sentence_transformers import SentenceTransformer
 
@@ -39,7 +41,7 @@ def search_in_dataset(dataset: TfIdfChunkedDocumentDataset | DenseChunkedDocumen
         generator = search_tfidf(search, dataset)
     else:
         model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-        generator = search_faiss(search, dataset, model)
+        generator = search_faiss(search, dataset, model, TOP_K )
 
     length = len(dataset)
 

@@ -8,9 +8,9 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from torch.utils.data import DataLoader
 
-from search_engine.src.datasets.dense_dataset import DenseDocumentDataset, DenseBatchedOutput, DenseChunkedDocumentDataset
-from search_engine.src.datasets.utils import no_collate
-from search_engine.src.preprocessing.preprocess import preprocess_document
+from src.datasets.dense_dataset import DenseDocumentDataset, DenseBatchedOutput, DenseChunkedDocumentDataset
+from src.datasets.utils import no_collate
+from src.preprocessing.preprocess import preprocess_document
 
 from sentence_transformers import SentenceTransformer
 
