@@ -4,13 +4,14 @@ import fitz
 import json
 
 from search_engine.src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
+from search_engine.src.datasets.dense_dataset import DenseChunkedDocumentDataset
 from search_engine.src.query.search_tfidf import search_tfidf
+from search_engine.src.query.search_faiss import search_faiss
 
 def clear_cache_dir(cache_path: str = "articles"):
     if os.path.exists(cache_path):
         shutil.rmtree(cache_path)  # Delete the directory and all contents
-        os.makedirs(cache_path) 
-
+        os.makedirs(cache_path)
 
 def extract_text_from_pdf(contents: bytes) -> list[str]:
     """
@@ -20,7 +21,7 @@ def extract_text_from_pdf(contents: bytes) -> list[str]:
     """
 
     text_by_page = []
-    
+
     doc = fitz.open(stream=contents, filetype="pdf")
     for page_number in range(len(doc)):
 
@@ -29,15 +30,17 @@ def extract_text_from_pdf(contents: bytes) -> list[str]:
         text_by_page.append(text)
 
     return text_by_page
-    
 
-def search_in_dataset(dataset: TfIdfChunkedDocumentDataset, search: str):
-    
-    search_results = search_tfidf(search, dataset)
-    
+
+def search_in_dataset(dataset: TfIdfChunkedDocumentDataset | DenseChunkedDocumentDataset, search: str):
+    if isinstance(dataset, TfIdfChunkedDocumentDataset):
+        search_results = search_tfidf(search, dataset)
+    else:
+        search_results = search_faiss(search, dataset)
+
     for result in search_results:
         data = {
             "page": int(result[0]["id"]),
             "score": float(result[0]["score"]),
-        }   
+        }
         yield f"data: {json.dumps(data)}\n\n"

@@ -7,3 +7,5 @@ scipy~=1.15.2
 spacy~=3.8.5
 datasets~=3.5.1
 tqdm~=4.67.1
+faiss-cpu~=1.11.0
+sentence-transformers~=4.1.0

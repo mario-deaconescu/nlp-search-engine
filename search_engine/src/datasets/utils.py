@@ -1,6 +1,7 @@
 import os
 import pickle
 from typing import TypeVar, Generic, Callable, Optional
+import faiss
 
 from search_engine.src.constants import CACHE_PATH
 
@@ -34,3 +35,7 @@ class CachedList(Generic[T]):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as f:
             pickle.dump(value, f)
+
+
+def load_faiss_index(path: str) -> faiss.Index:
+    return faiss.read_index(path)
