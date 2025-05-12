@@ -3,18 +3,7 @@ import {Document, Page, pdfjs} from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
 import {FaSearch} from "react-icons/fa";
-import {
-    addToast,
-    Button,
-    Divider,
-    Input,
-    Listbox,
-    ListboxItem,
-    Progress,
-    Select,
-    SelectItem,
-    Spinner
-} from "@heroui/react";
+import {addToast, Button, Divider, Input, Listbox, ListboxItem, Progress, Select, SelectItem} from "@heroui/react";
 import {SelectDocument} from "./components/SelectDocument.tsx";
 import {PaginationButtons} from "./components/PaginationButtons.tsx";
 
@@ -219,13 +208,14 @@ function App() {
                                 <Button
                                     onPress={handleSearch}
                                     variant={"bordered"}
+                                    isLoading={loading}
                                     color={"primary"}>Search</Button>
                             </div>
                             {progress !== null &&
                                 <Progress aria-label="Loading..." className="max-w-md" value={progress}/>}
                         </div>
                         <div className={"flex flex-col w-full gap-6 self-center"}>
-                            {loading && <Spinner/>}
+                            {/*{loading && <Spinner/>}*/}
                             {filteredSearchResults &&
                                 <div>
                                     <p className={'text-xl'}>
