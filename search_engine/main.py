@@ -26,7 +26,8 @@ from src.utils.helpers import extract_text_from_pdf, search_in_dataset
 
 from src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
 from src.datasets.dense_dataset import DenseChunkedDocumentDataset
-from src.datasets.bm25_dataset import Bm25ChunkedDocumentDataset
+from src.datasets.bm25_dataset import Bm25ChunkedDocumentDataset, Bm25FileDocumentDataset
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -85,7 +86,7 @@ async def upload(file: UploadFile = File(...), file_cache: FileCache = Depends(g
     return {"session_id": session_id}
 
 
-async def _search(session_id: str, search: str, file_cache: FileCache, mode: Literal['tfidf', 'faiss']):
+async def _search(session_id: str, search: str, file_cache: FileCache, mode: Literal['tfidf', 'faiss', 'bm25']):
     if not session_id:
         raise HTTPException(status_code=400, detail="Session ID is required.")
 
@@ -121,6 +122,10 @@ async def _search(session_id: str, search: str, file_cache: FileCache, mode: Lit
         base_dataset = DenseFileDocumentDataset(pdf_cache, length=length)
         cache = file_cache.subcache(f"faiss:{file_hash}")
         dataset = DenseChunkedDocumentDataset(base_dataset, chunk_size=CHUNK_SIZE, cache=cache)
+    elif mode == 'bm25':
+        base_dataset = Bm25FileDocumentDataset(pdf_cache, length=length)
+        cache = file_cache.subcache(f"bm25:{file_hash}")
+        dataset = Bm25ChunkedDocumentDataset(base_dataset, chunk_size=CHUNK_SIZE, cache=cache)
     else:
         raise HTTPException(status_code=400, detail="Invalid mode. Use 'tfidf' or 'faiss'.")
 
@@ -156,7 +161,7 @@ async def search_faiss(session_id: str, search: str, file_cache: FileCache = Dep
     return await _search(session_id, search, file_cache, mode='faiss')
 
 @app.get("/search-bm25")
-async def search_bm25(session_id: str, search: str):
+async def search_bm25(session_id: str, search: str, file_cache: FileCache = Depends(get_file_cache)):
     """
     Search for a string in a PDF file using BM25.
     :param session_id: The session ID for the uploaded PDF.
@@ -164,22 +169,7 @@ async def search_bm25(session_id: str, search: str):
     :return: A JSON response with the search results.
     """
 
-    if not session_id:
-        raise HTTPException(status_code=400, detail="Session ID is required.")
-
-    print(f"Received BM25 search request for session {session_id} with search string: {search}")
-
-    session_path = os.path.join(PREPROCESSING_CACHE_DIR, f"{session_id}.json")
-    if not os.path.exists(session_path):
-        raise HTTPException(status_code=404, detail="Session not found.")
-
-    # Load preprocessed_text
-    with open(session_path, "r", encoding="utf-8") as f:
-        preprocessed_text = json.load(f)
-    dataset = Bm25ChunkedDocumentDataset(preprocessed_text, chunk_size=CHUNK_SIZE, cache_path='bm25_articles')
-    bm25_results = search_in_dataset(dataset, search)
-    # Modify this
-    return StreamingResponse(bm25_results, media_type="text/event-stream")
+    return await _search(session_id, search, file_cache, mode='bm25')
 
 
 

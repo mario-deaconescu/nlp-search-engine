@@ -22,11 +22,10 @@ def search_bm25_chunked(args: tuple[str, Bm25ChunkedDocumentDataset, int, list[S
     chunk_size = len(documents)
     query = preprocess_document(query)
 
-
-    query_bm25 = bm25.transform([query])
+    query_tokens = query.split()
 
     # 6. Compute document scores
-    scores = bm25.get_scores(query_bm25)
+    scores = bm25.get_scores(query_tokens)
 
     # 7. Rank sentences
     ranked_indices = np.argsort(scores)[::-1]
