@@ -79,14 +79,24 @@ function App() {
         const formData = new FormData();
         formData.append("file", file);
 
-        const uploadRes = await fetch("http://localhost:8000/upload", {
-            method: "POST",
-            body: formData,
-        });
+        try {
+            const uploadRes = await fetch("http://localhost:8000/upload", {
+                method: "POST",
+                body: formData,
+            });
 
-        const {session_id} = await uploadRes.json();
-        setSessionId(session_id);
-        setUploading(false);
+            const {session_id} = await uploadRes.json();
+            setSessionId(session_id);
+        } catch (error: any) {
+            console.error("Error uploading PDF:", error);
+            addToast({
+                title: "Error uploading PDF",
+                severity: "danger",
+                description: error.message,
+            });
+        } finally {
+            setUploading(false);
+        }
     };
 
     const handleSearch = async () => {

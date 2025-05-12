@@ -19,22 +19,18 @@ def clear_cache_dir(cache_path: str = "articles"):
         os.makedirs(cache_path)
 
 
-def extract_text_from_pdf(contents: bytes) -> list[str]:
+def extract_text_from_pdf(contents: bytes) -> Generator[str, None, None]:
     """
     Extract text from a PDF file.
     :param contents: The PDF file contents to extract text from.
     :return: List with extracted text per page.
     """
 
-    text_by_page = []
-
     doc = fitz.open(stream=contents, filetype="pdf")
     for page_number in range(len(doc)):
         page = doc[page_number]
         text = page.get_text()
-        text_by_page.append(text)
-
-    return text_by_page
+        yield text
 
 
 def search_in_dataset(dataset: TfIdfChunkedDocumentDataset | DenseChunkedDocumentDataset, search: str) -> Generator[str, None, None]:

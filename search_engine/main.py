@@ -1,8 +1,12 @@
+import asyncio
 import json
+import multiprocessing
 import os
 import pickle
 import time
 import uuid
+from concurrent.futures import ProcessPoolExecutor
+from contextlib import asynccontextmanager
 from multiprocessing import Pool
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
@@ -15,10 +19,19 @@ from src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset, TfIdfFileDoc
 from src.dependencies import get_file_cache
 from src.preprocessing.preprocess import preprocess_document
 from src.preprocessing.string_list_utils import preprocess_string_list
+from src.utils import pool_executor
 from src.utils.cache import make_hash, FileCache
 from src.utils.helpers import extract_text_from_pdf, search_in_dataset
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    pool_executor.executor = ProcessPoolExecutor()
+    loop = asyncio.get_event_loop()
+    tasks = [loop.run_in_executor(pool_executor.executor, pool_executor.__init__worker) for _ in range(10)]
+    yield
+    pool_executor.executor.shutdown(wait=True)
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,8 +41,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-def preprocess_and_cache(file_cache: FileCache, key: str) -> None:
+def preprocess_and_cache(args: tuple[FileCache, str]) -> None:
+    file_cache, key = args
     if file_cache.exists(f"preprocessed:{key}"):
         return
 
@@ -49,7 +62,7 @@ async def upload(file: UploadFile = File(...), file_cache: FileCache = Depends(g
     file_hash = await make_hash(file)
 
     contents = await file.read()
-    content_pages = extract_text_from_pdf(contents)
+    content_pages = list(extract_text_from_pdf(contents))
     pdf_cache = file_cache.subcache(f"pdf:{file_hash}")
 
     for i, page in enumerate(content_pages):
@@ -95,11 +108,9 @@ async def search(session_id: str, search: str, file_cache: FileCache = Depends(g
     missing_preprocessed = [str(i) for i in range(length) if str(i) not in existing_preprocessed]
     print(missing_preprocessed)
     start = time.time()
-    with Pool() as pool:
-        print(len(pickle.dumps(pdf_cache)))
-        pool.starmap(preprocess_and_cache, [
-            (pdf_cache, str(i)) for i in missing_preprocessed
-        ], chunksize=50)
+    list(pool_executor.executor.map(preprocess_and_cache, [
+        (pdf_cache, str(i)) for i in missing_preprocessed
+    ], chunksize=50))
     end = time.time()
     print(f"Preprocessing took {end - start:.2f} seconds")
 
