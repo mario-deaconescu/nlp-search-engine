@@ -40,7 +40,7 @@ def search_in_dataset(dataset: TfIdfChunkedDocumentDataset | DenseChunkedDocumen
     if isinstance(dataset, TfIdfChunkedDocumentDataset):
         generator = search_tfidf(search, dataset)
     else:
-        model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device="cpu")
         generator = search_faiss(search, dataset, model, TOP_K )
 
     length = len(dataset)
