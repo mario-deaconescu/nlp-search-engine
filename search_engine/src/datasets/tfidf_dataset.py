@@ -1,13 +1,13 @@
+import time
+from abc import ABC, abstractmethod
 from typing import TypedDict, Optional, Iterable
 
 import torch.utils.data
-from sklearn.feature_extraction.text import TfidfVectorizer, HashingVectorizer, CountVectorizer
-
-from src.datasets.utils import CachedList
-from src.preprocessing.preprocess import nlp, preprocess_document
 from scipy.sparse import csr_matrix
+from sklearn.feature_extraction.text import TfidfVectorizer
 
-from src.preprocessing.vectorizer import StemmedTfidfVectorizer
+from src.preprocessing.preprocess import preprocess_document
+from src.utils.cache import FileCache
 
 
 class TfIdfInput(TypedDict):
@@ -15,21 +15,29 @@ class TfIdfInput(TypedDict):
 
 class TfIdfOutput(TypedDict):
     document: str
+    preprocessed: str
     tfidf: csr_matrix
     vectorizer: TfidfVectorizer
 
 class TfIdfBatchedOutput(TypedDict):
     documents: list[str]
+    preprocessed: list[str]
     tfidf: csr_matrix
     vectorizer: TfidfVectorizer
 
-class TfIdfDocumentDataset(torch.utils.data.Dataset):
+class TfIdfBaseDocumentDataset(torch.utils.data.Dataset, ABC):
 
-    def __init__(self, documents: list[TfIdfInput]):
-        self.documents = documents
+    @abstractmethod
+    def __len__(self) -> int:
+        pass
 
-    def __len__(self):
-        return len(self.documents)
+    @abstractmethod
+    def _get_document(self, idx: int) -> str:
+        pass
+
+    @abstractmethod
+    def _get_preprocessed_document(self, idx: int) -> tuple[str, str]:
+        pass
 
     @staticmethod
     def __preprocess(x):
@@ -39,55 +47,90 @@ class TfIdfDocumentDataset(torch.utils.data.Dataset):
     def __tokenize(x):
         return x.split()
 
-    def __getitem__(self, idx: int) -> TfIdfOutput:
-        document = self.documents[idx]["document"]
-        document = preprocess_document(document)
-        vectorizer = TfidfVectorizer(
-            preprocessor=TfIdfDocumentDataset.__preprocess,
-            tokenizer=TfIdfDocumentDataset.__tokenize,
-            token_pattern=None,
-            lowercase=False)
-        tfidf = vectorizer.fit_transform(document)
+    def __getitem__(self, idx: int, cached: Optional[tuple[TfidfVectorizer, csr_matrix]] = None) -> TfIdfOutput:
+        preprocessed, document = self._get_preprocessed_document(idx)
+        if cached is None:
+            vectorizer = TfidfVectorizer(
+                preprocessor=TfIdfBaseDocumentDataset.__preprocess,
+                tokenizer=TfIdfBaseDocumentDataset.__tokenize,
+                token_pattern=None,
+                lowercase=False)
+            tfidf = vectorizer.fit_transform(preprocessed)
+        else:
+            vectorizer, tfidf = cached
         return {
             "document": document,
+            "preprocessed": preprocessed,
             "tfidf": tfidf, # type: ignore
             "vectorizer": vectorizer,
         }
 
-    def get_document(self, idx: int) -> str:
-        return self.documents[idx]["document"]
-
     def get_chunked(self, idxs: Iterable[int], cached: Optional[tuple[TfidfVectorizer, csr_matrix]] = None) -> TfIdfBatchedOutput:
-        documents = [self.documents[idx]["document"] for idx in idxs]
-        documents = list(map(preprocess_document, documents))
+        # start_time = time.time()
+        documents = [self._get_preprocessed_document(idx) for idx in idxs]
+        preprocessed, documents = zip(*documents)
+        # print(f"Preprocessing took {time.time() - start_time:.2f} seconds")
 
         if cached is None:
             vectorizer = TfidfVectorizer()
-            tfidf = vectorizer.fit_transform(documents) # type: ignore
+            tfidf = vectorizer.fit_transform(preprocessed) # type: ignore
         else:
             vectorizer, tfidf = cached
 
         return {
             "documents": documents,
+            "preprocessed": preprocessed,
             "tfidf": tfidf, # type: ignore
             "vectorizer": vectorizer,
         }
 
     def get_all(self) -> TfIdfBatchedOutput:
-        return self.get_chunked(range(len(self.documents)))
+        return self.get_chunked(range(len(self)))
+
+class TfIdfDocumentDataset(TfIdfBaseDocumentDataset):
+    def __init__(self, documents: list[TfIdfInput]):
+        self.documents = documents
+
+    def __len__(self) -> int:
+        return len(self.documents)
+
+    def _get_document(self, idx: int) -> str:
+        return self.documents[idx]["document"]
+
+    def _get_preprocessed_document(self, idx: int) -> tuple[str, str]:
+        document = self.documents[idx]["document"]
+        preprocessed = preprocess_document(document)
+        return preprocessed, document
+
+class TfIdfFileDocumentDataset(TfIdfBaseDocumentDataset):
+    def __init__(self, cache: FileCache, length: int):
+        self.document_cache = cache.subcache("documents")
+        self.preprocessed_cache = cache.subcache("preprocessed")
+        self.length = length
+
+    def __len__(self) -> int:
+        return self.length
+
+    def _get_document(self, idx: int) -> str:
+        document = self.document_cache[str(idx)]
+        if document is None:
+            raise ValueError(f"Document {idx} not found")
+        return document
+
+    def _get_preprocessed_document(self, idx: int) -> tuple[str, str]:
+        document = self.document_cache[str(idx)]
+        preprocessed = self.preprocessed_cache[str(idx)]
+        if document is None or preprocessed is None:
+            raise ValueError(f"Document {idx} not found")
+        return preprocessed, document
+
 
 class TfIdfChunkedDocumentDataset(torch.utils.data.Dataset):
 
-    def __init__(self, documents: list[TfIdfInput], chunk_size: int, cache_path: Optional[str] = None):
-        self.dataset = TfIdfDocumentDataset(documents)
+    def __init__(self, dataset: TfIdfBaseDocumentDataset, chunk_size: int, cache: Optional[FileCache] = None):
+        self.dataset = dataset
         self.chunk_size = chunk_size
-        if cache_path is not None:
-            self.cache: CachedList[tuple[TfidfVectorizer, csr_matrix]] | None = CachedList(
-                cache_path=cache_path,
-                length=len(self)
-            )
-        else:
-            self.cache = None
+        self.cache = cache
 
     def __len__(self):
         return len(self.dataset) // self.chunk_size + (1 if len(self.dataset) % self.chunk_size > 0 else 0)
@@ -100,10 +143,10 @@ class TfIdfChunkedDocumentDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx: int) -> TfIdfBatchedOutput:
         cached = None
         if self.cache is not None:
-            cached = self.cache[idx]
+            cached = self.cache.get_pickled(str(idx))
 
         result = self._get(idx, cached)
         if self.cache is not None and cached is None:
-            self.cache[idx] = result["vectorizer"], result["tfidf"]
+            self.cache.set_pickled(str(idx), (result["vectorizer"], result["tfidf"]))
 
         return result

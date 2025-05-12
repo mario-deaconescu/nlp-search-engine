@@ -1,22 +1,23 @@
+import json
 import os
 import shutil
+from typing import Generator
+
 import fitz
-import json
-
-from src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
-from src.datasets.dense_dataset import DenseChunkedDocumentDataset
-from src.query.search_tfidf import search_tfidf
-from src.query.search_faiss import search_faiss
-
-from src.constants import INDEX_PATH, TOP_K
-
-
 from sentence_transformers import SentenceTransformer
+
+from src.constants import TOP_K
+from src.datasets.dense_dataset import DenseChunkedDocumentDataset
+from src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
+from src.query.search_faiss import search_faiss
+from src.query.search_tfidf import search_tfidf
+
 
 def clear_cache_dir(cache_path: str = "articles"):
     if os.path.exists(cache_path):
         shutil.rmtree(cache_path)  # Delete the directory and all contents
         os.makedirs(cache_path)
+
 
 def extract_text_from_pdf(contents: bytes) -> list[str]:
     """
@@ -36,12 +37,12 @@ def extract_text_from_pdf(contents: bytes) -> list[str]:
     return text_by_page
 
 
-def search_in_dataset(dataset: TfIdfChunkedDocumentDataset | DenseChunkedDocumentDataset, search: str):
+def search_in_dataset(dataset: TfIdfChunkedDocumentDataset | DenseChunkedDocumentDataset, search: str) -> Generator[str, None, None]:
     if isinstance(dataset, TfIdfChunkedDocumentDataset):
         generator = search_tfidf(search, dataset)
     else:
         model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device="cpu")
-        generator = search_faiss(search, dataset, model, TOP_K )
+        generator = search_faiss(search, dataset, model, TOP_K)
 
     length = len(dataset)
 

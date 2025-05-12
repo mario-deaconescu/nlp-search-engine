@@ -4,7 +4,6 @@ from faiss import Index, IndexFlatIP,  write_index, read_index
 
 import torch.utils.data
 
-from src.datasets.utils import CachedList
 from src.preprocessing.preprocess import nlp, preprocess_document
 from sentence_transformers import SentenceTransformer
 
