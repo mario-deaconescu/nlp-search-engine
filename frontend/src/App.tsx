@@ -34,6 +34,7 @@ function App() {
     const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
     const [session_id, setSessionId] = useState<string>();
     const [numResults, setNumResults] = useState(5);
+    const [uploading, setUploading] = useState(false);
 
     const progress = useMemo(() => {
         if (!loading) return null;
@@ -61,16 +62,24 @@ function App() {
         console.log("files", files);
         if (!files) return;
         const file = files[0];
-        if (file && file.type === "application/pdf") {
-            setPdfFile(file);
-            setCurrentPage(1);
-            setSearchInput("");
-            setSearchResults(null);
-            setSessionId(undefined);
+        if (!file || file.type !== "application/pdf") {
+            addToast({
+                title: "Only PDF files are supported.",
+                severity: "danger",
+            });
+            return;
+        }
+        setUploading(true);
+        setPdfFile(file);
+        setCurrentPage(1);
+        setSearchInput("");
+        setSearchResults(null);
+        setSessionId(undefined);
 
-            const formData = new FormData();
-            formData.append("file", file);
+        const formData = new FormData();
+        formData.append("file", file);
 
+        try {
             const uploadRes = await fetch("http://localhost:8000/upload", {
                 method: "POST",
                 body: formData,
@@ -78,11 +87,15 @@ function App() {
 
             const {session_id} = await uploadRes.json();
             setSessionId(session_id);
-        } else {
+        } catch (error: any) {
+            console.error("Error uploading PDF:", error);
             addToast({
-                title: "Only PDF files are supported.",
+                title: "Error uploading PDF",
                 severity: "danger",
-            })
+                description: error.message,
+            });
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -142,12 +155,13 @@ function App() {
 
     return (
         <div className="h-screen max-h-screen flex flex-col items-center justify-center bg-gray-50 p-5">
-            {!pdfFile &&
+            {!(pdfFile && session_id) &&
                 <SelectDocument
                     handleDrop={handleDrop}
                     handleClick={handleClick}
                     setDragOver={setDragOver}
                     dragOver={dragOver}
+                    loading={uploading}
                 />
             }
             <input
@@ -159,7 +173,7 @@ function App() {
                 onChange={(e) => handleFiles(e.target.files)}
             />
 
-            {pdfFile && (
+            {pdfFile && session_id && (
                 <div className={"flex flex-row gap-4 h-min w-full justify-center overflow-y-scroll"}>
                     <div
                         className="w-[70%] max-w-3xl h-fit max-h-full bg-white p-4 rounded shadow-lg flex flex-col items-center">

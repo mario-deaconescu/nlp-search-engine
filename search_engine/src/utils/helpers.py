@@ -1,47 +1,46 @@
+import json
 import os
 import shutil
+from typing import Generator
+
 import fitz
-import json
-
-from src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
-from src.datasets.dense_dataset import DenseChunkedDocumentDataset
-from src.query.search_tfidf import search_tfidf
-from src.query.search_faiss import search_faiss
-
-from src.constants import INDEX_PATH, TOP_K
-
-
+import torch
 from sentence_transformers import SentenceTransformer
+
+from src.constants import TOP_K
+from src.datasets.dense_dataset import DenseChunkedDocumentDataset
+from src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
+from src.query.search_faiss import search_faiss
+from src.query.search_tfidf import search_tfidf
+
 
 def clear_cache_dir(cache_path: str = "articles"):
     if os.path.exists(cache_path):
         shutil.rmtree(cache_path)  # Delete the directory and all contents
         os.makedirs(cache_path)
 
-def extract_text_from_pdf(contents: bytes) -> list[str]:
+
+def extract_text_from_pdf(contents: bytes) -> Generator[str, None, None]:
     """
     Extract text from a PDF file.
     :param contents: The PDF file contents to extract text from.
     :return: List with extracted text per page.
     """
 
-    text_by_page = []
-
     doc = fitz.open(stream=contents, filetype="pdf")
     for page_number in range(len(doc)):
         page = doc[page_number]
         text = page.get_text()
-        text_by_page.append(text)
-
-    return text_by_page
+        yield text
 
 
-def search_in_dataset(dataset: TfIdfChunkedDocumentDataset | DenseChunkedDocumentDataset, search: str):
+def search_in_dataset(dataset: TfIdfChunkedDocumentDataset | DenseChunkedDocumentDataset, search: str) -> Generator[str, None, None]:
     if isinstance(dataset, TfIdfChunkedDocumentDataset):
         generator = search_tfidf(search, dataset)
     else:
-        model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device="cpu")
-        generator = search_faiss(search, dataset, model, TOP_K )
+        device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+        model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device=device)
+        generator = search_faiss(search, dataset, model, TOP_K)
 
     length = len(dataset)
 

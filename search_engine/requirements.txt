@@ -9,6 +9,7 @@ datasets~=3.5.1
 tqdm~=4.67.1
 faiss-cpu~=1.11.0
 sentence-transformers~=4.1.0
+platformdirs
 
 annotated-types==0.7.0
 anyio==4.9.0
