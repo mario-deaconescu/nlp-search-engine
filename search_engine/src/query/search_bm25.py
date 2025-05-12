@@ -46,19 +46,29 @@ def search_bm25_chunked(args: tuple[str, Bm25ChunkedDocumentDataset, int, list[S
 
 
 def search_bm25(query: str, dataset: Bm25ChunkedDocumentDataset) -> Generator[list[SearchResult], None, None]:
+
+    if dataset.cache is not None and len(dataset.cache.subkeys()) > 0:
+        multiprocessing = False
+    else:
+        multiprocessing = True
+
+    multiprocessing = False
+
     with Manager() as manager:
         results = manager.list()
         lock = manager.Lock()
-        print("Making iterable...")
-        iterable = [
-            (query,
-             dataset,
-             i,
-             results,
-             lock) for i in range(len(dataset))
-        ]
-        print("Creating Pool...")
-        with Pool() as pool:
-            print("Searching...")
-            for result in pool.imap_unordered(search_bm25_chunked, iterable):
+        if multiprocessing:
+            iterable = [
+                (query,
+                 dataset,
+                 i,
+                 results,
+                 lock) for i in range(len(dataset))
+            ]
+            with Pool() as pool:
+                for result in pool.imap_unordered(search_bm25_chunked, iterable):
+                    yield result
+        else:
+            for i in range(len(dataset)):
+                result = search_bm25_chunked((query, dataset, i, results, lock))
                 yield result

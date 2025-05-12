@@ -66,7 +66,6 @@ def search_tfidf(query: str, dataset: TfIdfChunkedDocumentDataset) -> Generator[
         results = manager.list()
         lock = manager.Lock()
         pickled_dataset = pickle.dumps(dataset)
-        print(len(pickled_dataset))
         if multiprocessing:
             iterable = [
                 (query,

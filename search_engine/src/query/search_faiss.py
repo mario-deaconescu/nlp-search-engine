@@ -82,7 +82,6 @@ def search_faiss(query: str, dataset: DenseChunkedDocumentDataset, model: Senten
     with Manager() as manager:
         results = manager.list()
         lock = manager.Lock()
-        print("Making iterable...")
         if multiprocessing:
             iterable = [
                 (query,
@@ -93,13 +92,10 @@ def search_faiss(query: str, dataset: DenseChunkedDocumentDataset, model: Senten
                  model,
                  top_k) for i in range(len(dataset))
             ]
-            print("Creating Pool...")
             with Pool() as pool:
-                print("Searching...")
                 for result in pool.imap_unordered(search_faiss_chunked, iterable):
                     yield result
         else:
-            print("Searching...")
             for i in range(len(dataset)):
                 result = search_faiss_chunked((query, dataset, i, results, lock, model, top_k))
                 yield result

@@ -66,14 +66,12 @@ class BaseDenseDocumentDataset(torch.utils.data.Dataset, ABC):
         preprocessed, documents = zip(*documents)
 
         if cached is None:
-            print("SUG")
             embeddings = model.encode(
                 preprocessed,
                 convert_to_numpy=True,
                 batch_size=32,
                 show_progress_bar=True
             )
-            print("AM SUPTO")
         else:
             embeddings = cached
 

@@ -66,10 +66,8 @@ class TfIdfBaseDocumentDataset(torch.utils.data.Dataset, ABC):
         }
 
     def get_chunked(self, idxs: Iterable[int], cached: Optional[tuple[TfidfVectorizer, csr_matrix]] = None) -> TfIdfBatchedOutput:
-        # start_time = time.time()
         documents = [self._get_preprocessed_document(idx) for idx in idxs]
         preprocessed, documents = zip(*documents)
-        # print(f"Preprocessing took {time.time() - start_time:.2f} seconds")
 
         if cached is None:
             vectorizer = TfidfVectorizer()
