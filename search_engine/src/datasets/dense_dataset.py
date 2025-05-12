@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import TypedDict, Optional, Iterable
 import numpy as np
 from faiss import Index, IndexFlatIP,  write_index, read_index
@@ -8,6 +9,7 @@ from src.preprocessing.preprocess import nlp, preprocess_document
 from sentence_transformers import SentenceTransformer
 
 from src.constants import EMBEDDINGS_DIMENSION
+from src.utils.cache import FileCache
 
 
 class DenseInput(TypedDict):
@@ -15,18 +17,16 @@ class DenseInput(TypedDict):
 
 class DenseOutput(TypedDict):
     document: str
+    preprocessed: str
     embedding: np.ndarray
-    model: SentenceTransformer
+    model: Optional[SentenceTransformer]
 
 class DenseBatchedOutput(TypedDict):
     documents: list[str]
     embeddings: np.ndarray  # shape: (batch_size, embedding_dim)
     model: SentenceTransformer
 
-class DenseDocumentDataset(torch.utils.data.Dataset):
-
-    def __init__(self, documents: list[DenseInput]):
-        self.documents = documents
+class BaseDenseDocumentDataset(torch.utils.data.Dataset, ABC):
 
     def __len__(self):
         return len(self.documents)
@@ -39,55 +39,102 @@ class DenseDocumentDataset(torch.utils.data.Dataset):
     def __tokenize(x):
         return x.split()
 
+    @abstractmethod
+    def __len__(self) -> int:
+        pass
+
+    @abstractmethod
+    def _get_document(self, idx: int) -> str:
+        pass
+
+    @abstractmethod
+    def _get_preprocessed_document(self, idx: int) -> tuple[str, str]:
+        pass
+
     def __getitem__(self, idx: int) -> DenseOutput:
-        document = self.documents[idx]["document"]
-        document = preprocess_document(document)
+        preprocessed, document = self._get_preprocessed_document(idx)
         # Don't encode here; batching will happen in get_chunked
         return {
             "document": document,
+            "preprocessed": preprocessed,
             "embedding": np.array([]),  # placeholder, not used
+            "model": None,  # placeholder, not used
         }
 
-    def get_document(self, idx: int) -> str:
-        return self.documents[idx]["document"]
-
     def get_chunked(self, idxs: Iterable[int], model: SentenceTransformer, cached: Optional[np.ndarray] = None) -> DenseBatchedOutput:
-        documents = [self.documents[idx]["document"] for idx in idxs]
-        documents = list(map(preprocess_document, documents))
+        documents = [self._get_preprocessed_document(idx) for idx in idxs]
+        preprocessed, documents = zip(*documents)
 
         if cached is None:
+            print("SUG")
             embeddings = model.encode(
-                documents,
+                preprocessed,
                 convert_to_numpy=True,
                 batch_size=32,
                 show_progress_bar=True
             )
+            print("AM SUPTO")
         else:
             embeddings = cached
 
         return {
             "documents": documents,
+            "preprocessed": preprocessed,
             "embeddings": embeddings,
             "model": model,
         }
 
     def get_all(self, model: SentenceTransformer) -> DenseBatchedOutput:
-        return self.get_chunked(range(len(self.documents)), model)
+        return self.get_chunked(range(len(self)), model)
+
+class DenseDocumentDataset(BaseDenseDocumentDataset):
+
+    def __init__(self, documents: list[DenseInput]):
+        self.documents = documents
+
+    def _get_document(self, idx: int) -> str:
+        return self.documents[idx]["document"]
+
+    def _get_preprocessed_document(self, idx: int) -> tuple[str, str]:
+        document = self._get_document(idx)
+        preprocessed = preprocess_document(document)
+        return preprocessed, document
+
+    def __len__(self) -> int:
+        return len(self.documents)
+
+class DenseFileDocumentDataset(BaseDenseDocumentDataset):
+
+    def __init__(self, cache: FileCache, length: int):
+        self.document_cache = cache.subcache("documents")
+        self.preprocessed_cache = cache.subcache("preprocessed")
+        self.length = length
+
+    def __len__(self) -> int:
+        return self.length
+
+    def _get_document(self, idx: int) -> str:
+        document = self.document_cache[str(idx)]
+        if document is None:
+            raise ValueError(f"Document {idx} not found")
+        return document
+
+    def _get_preprocessed_document(self, idx: int) -> tuple[str, str]:
+        document = self.document_cache[str(idx)]
+        preprocessed = self.preprocessed_cache[str(idx)]
+        if document is None or preprocessed is None:
+            raise ValueError(f"Document {idx} not found")
+        return preprocessed, document
+
 
 class DenseChunkedDocumentDataset(torch.utils.data.Dataset):
 
-    def __init__(self, documents: list[DenseInput], chunk_size: int, cache_path: Optional[str] = None, index_path: Optional[str] = None):
-        self.dataset = DenseDocumentDataset(documents)
+    def __init__(self, dataset: BaseDenseDocumentDataset, chunk_size: int, cache: Optional[FileCache] = None, index_path: Optional[str] = None):
+        self.dataset = dataset
         self.chunk_size = chunk_size
         self.index_path = index_path
 
-        if cache_path is not None:
-            self.cache: CachedList[np.ndarray] | None = CachedList(
-                cache_path=cache_path,
-                length=len(self)
-            )
-        else:
-            self.cache = None
+        self.cache = cache
 
         self.index: Optional[IndexFlatIP] = None
 
@@ -111,12 +158,10 @@ class DenseChunkedDocumentDataset(torch.utils.data.Dataset):
         return self.dataset.get_chunked(range(start_idx, end_idx), model, cached)
 
 
-    from faiss import Index
-
     def get_chunk(self, idx: int, model: SentenceTransformer) -> DenseBatchedOutput:
         cached = None
         if self.cache is not None:
-            cached = self.cache[idx]
+            cached = self.cache.get_pickled(str(idx))
 
         result = self._get(idx, model, cached)
 
@@ -127,7 +172,7 @@ class DenseChunkedDocumentDataset(torch.utils.data.Dataset):
             self.save_index()
 
         if self.cache is not None and cached is None:
-            self.cache[idx] = result["embeddings"]
+            self.cache.set_pickled(str(idx), result["embeddings"])
 
         return result
 

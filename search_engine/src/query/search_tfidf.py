@@ -27,11 +27,6 @@ def search_tfidf_chunked(args: tuple[str, TfIdfChunkedDocumentDataset, int, List
     global_results = args[3]
     lock = args[4]
 
-    # with open(f'.cache/articles/{idx}.pkl', 'rb') as f:
-    #     data = pickle.load(f)
-    # print(data)
-
-
     chunk = dataset[idx]
     tfidf = chunk['tfidf']
     vectorizer = chunk['vectorizer']
@@ -42,7 +37,7 @@ def search_tfidf_chunked(args: tuple[str, TfIdfChunkedDocumentDataset, int, List
     query_tfidf = vectorizer.transform([query])
 
     # 6. Compute cosine similarity
-    cosine_similarities = cosine_similarity(query_tfidf, tfidf).flatten()
+    cosine_similarities: list[float] = cosine_similarity(query_tfidf, tfidf).flatten()
 
     # 7. Rank sentences
     ranked_indices = np.argsort(cosine_similarities)[::-1]
@@ -61,7 +56,6 @@ def search_tfidf_chunked(args: tuple[str, TfIdfChunkedDocumentDataset, int, List
         tmp = sorted(global_results, key=lambda x: x['score'], reverse=True)[:chunk_size]
         global_results[:] = tmp
     return tmp
-    return ranked_documents
 
 def search_tfidf(query: str, dataset: TfIdfChunkedDocumentDataset) -> Generator[list[SearchResult], None, None]:
     if dataset.cache is not None and len(dataset.cache.subkeys()) > 0:

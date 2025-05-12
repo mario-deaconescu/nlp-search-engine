@@ -4,6 +4,7 @@ import shutil
 from typing import Generator
 
 import fitz
+import torch
 from sentence_transformers import SentenceTransformer
 
 from src.constants import TOP_K
@@ -37,7 +38,8 @@ def search_in_dataset(dataset: TfIdfChunkedDocumentDataset | DenseChunkedDocumen
     if isinstance(dataset, TfIdfChunkedDocumentDataset):
         generator = search_tfidf(search, dataset)
     else:
-        model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device="cpu")
+        device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+        model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device=device)
         generator = search_faiss(search, dataset, model, TOP_K)
 
     length = len(dataset)

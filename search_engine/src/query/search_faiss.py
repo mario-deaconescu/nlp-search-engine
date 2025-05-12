@@ -35,11 +35,6 @@ def search_faiss_chunked(args: tuple[str, DenseChunkedDocumentDataset, int, list
     model = args[5]
     top_k = args[6]
 
-    # with open(f'.cache/articles/{idx}.pkl', 'rb') as f:
-    #     data = pickle.load(f)
-    # print(data)
-
-
     chunk = dataset.get_chunk(idx, model)
 
     documents = chunk['documents']
@@ -65,7 +60,6 @@ def search_faiss_chunked(args: tuple[str, DenseChunkedDocumentDataset, int, list
         'score': distances[0][iteration]
     } for iteration, i in enumerate(ranked_indices[0])]
 
-
     # 8. Lock
     with lock:
         global_results.extend(ranked_documents[:chunk_size])
@@ -77,21 +71,35 @@ def search_faiss_chunked(args: tuple[str, DenseChunkedDocumentDataset, int, list
     return tmp
 
 def search_faiss(query: str, dataset: DenseChunkedDocumentDataset, model: SentenceTransformer, top_k : int) -> Generator[list[SearchResult], None, None]:
+    if dataset.cache is not None and len(dataset.cache.subkeys()) > 0:
+        multiprocessing = False
+    else:
+        multiprocessing = True
+
+    multiprocessing = False
+
+    multiprocessing = False
     with Manager() as manager:
         results = manager.list()
         lock = manager.Lock()
         print("Making iterable...")
-        iterable = [
-            (query,
-             dataset,
-             i,
-             results,
-             lock,
-             model,
-             top_k) for i in range(len(dataset))
-        ]
-        print("Creating Pool...")
-        with Pool() as pool:
+        if multiprocessing:
+            iterable = [
+                (query,
+                 dataset,
+                 i,
+                 results,
+                 lock,
+                 model,
+                 top_k) for i in range(len(dataset))
+            ]
+            print("Creating Pool...")
+            with Pool() as pool:
+                print("Searching...")
+                for result in pool.imap_unordered(search_faiss_chunked, iterable):
+                    yield result
+        else:
             print("Searching...")
-            for result in pool.imap_unordered(search_faiss_chunked, iterable):
+            for i in range(len(dataset)):
+                result = search_faiss_chunked((query, dataset, i, results, lock, model, top_k))
                 yield result

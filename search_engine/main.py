@@ -8,13 +8,14 @@ import uuid
 from concurrent.futures import ProcessPoolExecutor
 from contextlib import asynccontextmanager
 from multiprocessing import Pool
+from typing import Literal
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from src.constants import CHUNK_SIZE
-from src.datasets.dense_dataset import DenseChunkedDocumentDataset
+from src.datasets.dense_dataset import DenseChunkedDocumentDataset, DenseFileDocumentDataset
 from src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset, TfIdfFileDocumentDataset
 from src.dependencies import get_file_cache
 from src.preprocessing.preprocess import preprocess_document
@@ -23,6 +24,7 @@ from src.utils import pool_executor
 from src.utils.cache import make_hash, FileCache
 from src.utils.helpers import extract_text_from_pdf, search_in_dataset
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     pool_executor.executor = ProcessPoolExecutor()
@@ -30,6 +32,7 @@ async def lifespan(app: FastAPI):
     tasks = [loop.run_in_executor(pool_executor.executor, pool_executor.__init__worker) for _ in range(10)]
     yield
     pool_executor.executor.shutdown(wait=True)
+
 
 app = FastAPI(lifespan=lifespan)
 
@@ -40,6 +43,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 def preprocess_and_cache(args: tuple[FileCache, str]) -> None:
     file_cache, key = args
@@ -78,15 +82,7 @@ async def upload(file: UploadFile = File(...), file_cache: FileCache = Depends(g
     return {"session_id": session_id}
 
 
-@app.get("/search-tf-idf")
-async def search(session_id: str, search: str, file_cache: FileCache = Depends(get_file_cache)):
-    """
-    Search for a string in a PDF file.
-    :param file: The PDF file to search in.
-    :param search: The string to search for.
-    :return: A JSON response with the number of pages in the PDF.
-    """
-
+async def _search(session_id: str, search: str, file_cache: FileCache, mode: Literal['tfidf', 'faiss']):
     if not session_id:
         raise HTTPException(status_code=400, detail="Session ID is required.")
 
@@ -114,40 +110,44 @@ async def search(session_id: str, search: str, file_cache: FileCache = Depends(g
     end = time.time()
     print(f"Preprocessing took {end - start:.2f} seconds")
 
-    base_dataset = TfIdfFileDocumentDataset(pdf_cache, length=length)
+    if mode == 'tfidf':
+        base_dataset = TfIdfFileDocumentDataset(pdf_cache, length=length)
+        cache = file_cache.subcache(f"tfidf:{file_hash}")
+        dataset = TfIdfChunkedDocumentDataset(base_dataset, chunk_size=CHUNK_SIZE, cache=cache)
+    elif mode == 'faiss':
+        base_dataset = DenseFileDocumentDataset(pdf_cache, length=length)
+        cache = file_cache.subcache(f"faiss:{file_hash}")
+        dataset = DenseChunkedDocumentDataset(base_dataset, chunk_size=CHUNK_SIZE, cache=cache)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid mode. Use 'tfidf' or 'faiss'.")
 
-    tfidf_cache = file_cache.subcache(f"tfidf:{file_hash}")
-
-    dataset = TfIdfChunkedDocumentDataset(base_dataset, chunk_size=CHUNK_SIZE, cache=tfidf_cache)
-
-    tfidf_results = search_in_dataset(dataset, search)
+    results = search_in_dataset(dataset, search)
 
     # Modify this
-    return StreamingResponse(tfidf_results, media_type="text/event-stream")
+    return StreamingResponse(results, media_type="text/event-stream")
+
+
+@app.get("/search-tf-idf")
+async def search_tfidf(session_id: str, search: str, file_cache: FileCache = Depends(get_file_cache)):
+    """
+    Search for a string in a PDF file.
+    :param file: The PDF file to search in.
+    :param search: The string to search for.
+    :param file_cache: The file cache to use for storing and retrieving the PDF.
+    :return: A JSON response with the number of pages in the PDF.
+    """
+
+    return await _search(session_id, search, file_cache, mode='tfidf')
 
 
 @app.get("/search-faiss")
-async def search_faiss(session_id: str, search: str):
+async def search_faiss(session_id: str, search: str, file_cache: FileCache = Depends(get_file_cache)):
     """
     Search for a string in a PDF file using FAISS.
     :param session_id: The session ID for the uploaded PDF.
     :param search: The string to search for.
+    :param file_cache: The file cache to use for storing and retrieving the PDF.
     :return: A JSON response with the search results.
     """
 
-    if not session_id:
-        raise HTTPException(status_code=400, detail="Session ID is required.")
-
-    print(f"Received FAISS search request for session {session_id} with search string: {search}")
-
-    session_path = os.path.join(PREPROCESSING_CACHE_DIR, f"{session_id}.json")
-    if not os.path.exists(session_path):
-        raise HTTPException(status_code=404, detail="Session not found.")
-
-    # Load preprocessed_text
-    with open(session_path, "r", encoding="utf-8") as f:
-        preprocessed_text = json.load(f)
-    dataset = DenseChunkedDocumentDataset(preprocessed_text, chunk_size=CHUNK_SIZE, cache_path='dense_articles')
-    dense_results = search_in_dataset(dataset, search)
-    # Modify this
-    return StreamingResponse(dense_results, media_type="text/event-stream")
+    return await _search(session_id, search, file_cache, mode='faiss')
