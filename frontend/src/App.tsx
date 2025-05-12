@@ -29,7 +29,7 @@ function App() {
     const [numPages, setNumPages] = useState<number>();
     const [currentPage, setCurrentPage] = useState(1);
     const [searchInput, setSearchInput] = useState("");
-    const [searchTypes, setSearchTypes] = useState<Set<"TF-IDF"| "FAISS">>(new Set(["TF-IDF"]));
+    const [searchTypes, setSearchTypes] = useState<Set<"TF-IDF"| "FAISS" | "BM-25">>(new Set(["TF-IDF"]));
     const [loading, setLoading] = useState(false);
     const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
     const [session_id, setSessionId] = useState<string>();
@@ -97,8 +97,11 @@ function App() {
             let eventSource;
             if(searchTypes.has("TF-IDF"))
                 eventSource = new EventSource(`http://localhost:8000/search-tf-idf?session_id=${session_id}&search=${trimmedSearch}`);
-            else
+            else if(searchTypes.has("FAISS"))
                 eventSource = new EventSource(`http://localhost:8000/search-faiss?session_id=${session_id}&search=${trimmedSearch}`);
+            else if(searchTypes.has("BM-25"))
+                eventSource = new EventSource(`http://localhost:8000/search-bm25?session_id=${session_id}&search=${trimmedSearch}`);
+
 
             eventSource.onmessage = (event) => {
                 const data = JSON.parse(event.data);
@@ -192,6 +195,7 @@ function App() {
                             >
                                 <SelectItem key={"TF-IDF"}>TF-IDF</SelectItem>
                                 <SelectItem key={"FAISS"}>FAISS</SelectItem>
+                                <SelectItem key={"BM-25"}>BM-25</SelectItem>
 
                             </Select>
                             <p>Search in document</p>

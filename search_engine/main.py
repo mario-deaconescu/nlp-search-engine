@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.preprocessing.string_list_utils import preprocess_string_list
 from src.datasets.tfidf_dataset import TfIdfChunkedDocumentDataset
 from src.datasets.dense_dataset import DenseChunkedDocumentDataset
+from src.datasets.bm25_dataset import Bm25ChunkedDocumentDataset
 
 from src.utils.helpers import extract_text_from_pdf, search_in_dataset, clear_cache_dir
 from src.constants import CHUNK_SIZE, BASE_CACHE_DIR, PREPROCESSING_CACHE_DIR, FRONTEND_URL, INDEX_PATH
@@ -101,6 +102,32 @@ async def search_faiss(session_id: str, search: str):
     # Modify this
     return StreamingResponse(dense_results, media_type="text/event-stream")
 
+
+@app.get("/search-bm25")
+async def search_bm25(session_id: str, search: str):
+    """
+    Search for a string in a PDF file using BM25.
+    :param session_id: The session ID for the uploaded PDF.
+    :param search: The string to search for.
+    :return: A JSON response with the search results.
+    """
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Session ID is required.")
+
+    print(f"Received BM25 search request for session {session_id} with search string: {search}")
+
+    session_path = os.path.join(PREPROCESSING_CACHE_DIR, f"{session_id}.json")
+    if not os.path.exists(session_path):
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    # Load preprocessed_text
+    with open(session_path, "r", encoding="utf-8") as f:
+        preprocessed_text = json.load(f)
+    dataset = Bm25ChunkedDocumentDataset(preprocessed_text, chunk_size=CHUNK_SIZE, cache_path='bm25_articles')
+    bm25_results = search_in_dataset(dataset, search)
+    # Modify this
+    return StreamingResponse(bm25_results, media_type="text/event-stream")
 
 
 
